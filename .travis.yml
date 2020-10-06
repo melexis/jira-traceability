@@ -7,16 +7,16 @@ matrix:
   include:
     - python: 3.5
       env:
-        - TOXENV=py35,sphinx2.1,sphinx-latest,codecov
+        - TOXENV=py35,codecov
     - python: 3.6
       env:
-        - TOXENV=py36,sphinx2.1,sphinx-latest,codecov
+        - TOXENV=py36,codecov
     - python: 3.7
       env:
-        - TOXENV=py37,check,sphinx2.1,sphinx-latest,codecov
+        - TOXENV=py37,check,codecov
     - python: 3.8
       env:
-        - TOXENV=py38,check,sphinx2.1,sphinx-latest,codecov
+        - TOXENV=py38,check,codecov
 
 before_install:
   - python --version
