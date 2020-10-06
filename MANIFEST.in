@@ -1,0 +1,13 @@
+# Include the readme file
+include README.rst
+include tox.ini
+include .pylintrc
+include LICENSE
+include requirements.txt
+
+recursive-include tests *.py
+recursive-include tests *.rst
+recursive-include tests *.txt
+
+exclude mlx/__version__.py
+exclude *.yml
