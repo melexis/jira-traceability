@@ -1,7 +1,12 @@
 # Include the readme file
 include README.rst
 include tox.ini
+include .pylintrc
+include LICENCE
+include requirements.txt
 
+recursive-include *.yml
+recursive-include doc *.txt
 recursive-include doc *.py
 recursive-include doc *.rst
 recursive-include doc Makefile
@@ -12,3 +17,7 @@ recursive-include tests *.txt
 exclude mlx/__version__.py
 
 recursive-exclude doc/_build *
+
+# added by check_manifest.py
+include *.yml
+include LICENSE
