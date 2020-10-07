@@ -41,7 +41,8 @@ Configuration
         'default_project': 'SWCC',
         'relationship_to_parent': ('depends_on', r'MEETING-[\w_]+'),
         'components': '[SW],[HW]',
-        'description_head': 'Action raised in meeting.\n\n',
+        'description_head': 'Action raised in [this meeting|https://docserver.com/<<file_name>>.html].\n\n',
+        'str_to_attr_mapping': {'<<file_name>>': 'docname'},
         'warn_if_exists': False,
         'errors_to_warnings': True,
         'notify_watchers': False,
@@ -82,3 +83,16 @@ All attributes are optional and are defined in `the default configuration of mlx
 If the item for which to create a ticket has an item linked to it by a ``relationship_to_parent`` relationship,
 the *attendees* attribute of this linked item should be a comma-separated list of usernames that get added as watchers
 to the ticket.
+
+Mapping of Strings to Item Attributes (advanced)
+================================================
+
+If you want to use the value of an attribute of a TraceableItem in the string value for the
+``description_head`` setting, you can set the ``str_to_attr_mapping`` setting to a dictionary mapping the string you
+want to have replaced to the attribute of the ``TraceableItem`` that should take its place. In the following example,
+some placeholder text will get replaced by the document name the item is located in:
+
+.. code-block:: python
+
+    'description_head': 'Action raised in [this meeting|https://docserver.com/<<file_name>>.html].\n\n',
+    'str_to_attr_mapping': {'<<file_name>>': 'docname'}
