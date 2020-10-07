@@ -50,19 +50,11 @@ before_deploy:
 deploy:
   # production pypi
   - provider: pypi
-    distributions: sdist bdist_wheel
-    user: __token__
+    distributions: "sdist bdist_wheel"
+    user: JasperCraeghs
     password:
       secure: "MI6PHZxqJ3b+jG9OjkV0y4iSJhshdvwsLJNx4UPUjt2IL0qJC2YgS0NbXCidPtuAgI8Q86bKFurQKesBVkKHayRSbyJY1KszbB/rnzSUBz1/I/NSFpaMCLac4lX0QH/qwnxXFchVklsrLxtM6o2h1UJxeOYx5w06cTT2VaEoBiLezMEmSEF1Zd4354ZVlw6EF8gr41pFYx0hYMkIPbTT17m6ypX+VCJbUrMy8dM9WnUqvlcldRthF1swe5B6sKdcyjA6CC9Q0P8LDbQll4LgorTNqWN4PC+2rSZ4zmDrsUyBOjy2uSXsziKzUXEvHHHSIob+D6Ii+s3rYUfJSfaX61Ty1BHK9bPYwiwN1UkFy+wbKKUu92TlzgSFcQBKyaUSsxTWW7zuH21qwnQJwCPzEnrhqESIFTDcXT4L5eYfv6M0aU8iBMZ/rgk/sbo7WaIzqwJn35J/WLAKEUqUN9wnrn2ZikdeOf4c74nr/iSjYU3WQ5JjVADyo6Wd4nOQtVINHRMdixrF9DZArPIN/Rkaa5uSCk9hoPe8YIsIuBmKH95qeKbfq6uLoxZ/h48OAEFEoSc2Xb9wr6Au4g3sfFnBoK0KjLbFuzPrfBtCB2auHUWIzG/FZVMM/OTp6j6RIOPp8FJw2QlcP/twz31zwUCeyHGssdonA4myF5qwjOAi2ik="
     on:
       branch: master
       python: 3.7
       tags: true
-  # publish documentation: built by tox, published to pages
-  - provider: pages
-    skip_cleanup: true
-    local_dir: doc/_build/html/
-    github_token: $GITHUB_TOKEN
-    on:
-      branch: master
-      python: 3.6
