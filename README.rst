@@ -42,7 +42,7 @@ Configuration
         'relationship_to_parent': ('depends_on', r'MEETING-[\w_]+'),
         'components': '[SW],[HW]',
         'description_head': 'Action raised in [this meeting|https://docserver.com/<<file_name>>.html].\n\n',
-        'str_to_attr_mapping': {'<<file_name>>': 'docname'},
+        'description_str_to_attr': {'<<file_name>>': 'docname'},
         'warn_if_exists': False,
         'errors_to_warnings': True,
         'notify_watchers': False,
@@ -88,11 +88,11 @@ Mapping of Strings to Item Attributes (advanced)
 ================================================
 
 If you want to use the value of an attribute of a TraceableItem in the string value for the
-``description_head`` setting, you can set the ``str_to_attr_mapping`` setting to a dictionary mapping the string you
+``description_head`` setting, you can set the ``description_str_to_attr`` setting to a dictionary mapping the string you
 want to have replaced to the attribute of the ``TraceableItem`` that should take its place. In the following example,
 some placeholder text will get replaced by the document name the item is located in:
 
 .. code-block:: python
 
     'description_head': 'Action raised in [this meeting|https://docserver.com/<<file_name>>.html].\n\n',
-    'str_to_attr_mapping': {'<<file_name>>': 'docname'}
+    'description_str_to_attr': {'<<file_name>>': 'docname'}

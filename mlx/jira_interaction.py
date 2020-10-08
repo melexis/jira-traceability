@@ -82,11 +82,11 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         if not body:
             body = item.caption
 
-        description_head = settings.get('description_head', '')
-        for str_to_replace, attr_name in settings.get('str_to_attr_mapping', {}).items():
+        description = settings.get('description_head', '') + body
+        for str_to_replace, attr_name in settings.get('description_str_to_attr', {}).items():
             attribute = getattr(item, attr_name)
-            description_head = description_head.replace(str(str_to_replace), str(attribute))
-        fields['description'] = description_head + body
+            description = description.replace(str(str_to_replace), str(attribute))
+        fields['description'] = description
 
         if assignee and not settings.get('notify_watchers', False):
             fields['assignee'] = {'name': item.get_attribute('assignee')}
