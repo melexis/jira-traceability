@@ -24,7 +24,6 @@ before_install:
   - lsb_release -a
 
 install:
-  - pip install --upgrade pip
   - pip install tox
   - pip install coverage
   - virtualenv --version
