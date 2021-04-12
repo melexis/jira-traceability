@@ -68,7 +68,7 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
 
         jira_field_id = settings['jira_field_id']
         jira_field_query_value = escape_special_characters(jira_field)
-        matches = jira.search_issues("project={} and {} ~ '{}'".format(project_id_or_key,
+        matches = jira.search_issues("project={} and {} ~ {!r}".format(project_id_or_key,
                                                                        jira_field_id,
                                                                        jira_field_query_value))
         if matches:
@@ -208,5 +208,5 @@ def escape_special_characters(input_string):
     prepared_string = input_string
     for special_char in ("\\", "+", "-", "&", "|", "!", "(", ")", "{", "}", "[", "]", "^", "~", "*", "?", ":"):
         if special_char in prepared_string:
-            prepared_string = prepared_string.replace(special_char, r"\\" + special_char)
+            prepared_string = prepared_string.replace(special_char, "\\" + special_char)
     return prepared_string
