@@ -131,7 +131,7 @@ class TestJiraInteraction(TestCase):
                                    basic_auth=('my_username', 'my_password')))
         self.assertEqual(jira_mock.search_issues.call_args_list,
                          [
-                             mock.call("project=MLX12345 and summary ~ 'MEETING\\-12345_2\\: Caption for action 1\\?'"),
+                             mock.call("project=MLX12345 and summary ~ 'MEETING\\\\-12345_2\\\\: Caption for action 1\\\\?'"),
                              mock.call("project=MLX12345 and summary ~ 'Caption for action 2'"),
                          ])
 
@@ -323,7 +323,7 @@ class TestJiraInteraction(TestCase):
         self.assertEqual(jira_mock.search_issues.call_args_list,
                          [
                              mock.call("project=MLX12345 and summary ~ "
-                                       "'ZZZ\\-TO_BE_PRIORITIZED\\: Caption for action 1\\?'"),
+                                       "'ZZZ\\\\-TO_BE_PRIORITIZED\\\\: Caption for action 1\\\\?'"),
                              mock.call("project=MLX12345 and summary ~ 'Caption for action 2'"),
                          ])
 
