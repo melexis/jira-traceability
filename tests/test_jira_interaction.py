@@ -40,7 +40,7 @@ class TestJiraInteraction(TestCase):
         self.coll = TraceableCollection()
         parent = TraceableItem('MEETING-12345_2')
         action1 = TraceableItem('ACTION-12345_ACTION_1')
-        action1.caption = 'Caption for action 1?'
+        action1.caption = 'Action 1\'s caption?'
         action1.set_content('Description for action 1')
         action2 = TraceableItem('ACTION-12345_ACTION_2')
         action2.caption = 'Caption for action 2'
@@ -125,14 +125,13 @@ class TestJiraInteraction(TestCase):
             cm.output,
             ['WARNING:root:Dummy log']
         )
-
         self.assertEqual(jira.call_args,
                          mock.call({'server': 'https://jira.atlassian.com/rest/api/latest/'},
                                    basic_auth=('my_username', 'my_password')))
         self.assertEqual(jira_mock.search_issues.call_args_list,
                          [
                              mock.call(
-                                 "project=MLX12345 and summary ~ 'MEETING\\\\-12345_2\\\\: Caption for action 1\\\\?'"),
+                                 'project=MLX12345 and summary ~ "MEETING\\\\-12345_2\\\\: Action 1\'s caption\\\\?"'),
                              mock.call("project=MLX12345 and summary ~ 'Caption for action 2'"),
                          ])
 
@@ -141,7 +140,7 @@ class TestJiraInteraction(TestCase):
             jira_mock.create_issue.call_args_list,
             [
                 mock.call(
-                    summary='MEETING-12345_2: Caption for action 1?',
+                    summary='MEETING-12345_2: Action 1\'s caption?',
                     description='Description for action 1',
                     assignee={'name': 'ABC'},
                     **self.general_fields
@@ -188,7 +187,7 @@ class TestJiraInteraction(TestCase):
             [
                 mock.call(
                     description='Description for action 1',
-                    summary='MEETING-12345_2: Caption for action 1?',
+                    summary='MEETING-12345_2: Action 1\'s caption?',
                     **self.general_fields
                 ),
                 mock.call(
@@ -268,7 +267,7 @@ class TestJiraInteraction(TestCase):
             jira_mock.create_issue.call_args_list,
             [
                 mock.call(
-                    summary='MEETING-12345_2: Caption for action 1?',
+                    summary='MEETING-12345_2: Action 1\'s caption?',
                     description='Description for action 1',
                     assignee={'name': 'ABC'},
                     **self.general_fields
@@ -324,7 +323,7 @@ class TestJiraInteraction(TestCase):
         self.assertEqual(jira_mock.search_issues.call_args_list,
                          [
                              mock.call("project=MLX12345 and summary ~ "
-                                       "'ZZZ\\\\-TO_BE_PRIORITIZED\\\\: Caption for action 1\\\\?'"),
+                                       '"ZZZ\\\\-TO_BE_PRIORITIZED\\\\: Action 1\'s caption\\\\?"'),
                              mock.call("project=MLX12345 and summary ~ 'Caption for action 2'"),
                          ])
 
@@ -332,7 +331,7 @@ class TestJiraInteraction(TestCase):
             jira_mock.create_issue.call_args_list,
             [
                 mock.call(
-                    summary='ZZZ-TO_BE_PRIORITIZED: Caption for action 1?',
+                    summary='ZZZ-TO_BE_PRIORITIZED: Action 1\'s caption?',
                     description='Description for action 1',
                     assignee={'name': 'ABC'},
                     **self.general_fields
@@ -356,7 +355,7 @@ class TestJiraInteraction(TestCase):
         attendees, jira_field = dut.get_info_from_relationship(action1, relationship_to_parent, self.coll)
 
         self.assertEqual(attendees, [])
-        self.assertEqual(jira_field, 'ZZZ-TO_BE_PRIORITIZED: Caption for action 1?')
+        self.assertEqual(jira_field, 'ZZZ-TO_BE_PRIORITIZED: Action 1\'s caption?')
 
     def test_get_info_from_relationship_str(self, _):
         """ Tests dut.get_info_from_relationship with a config_for_parent parameter as str """
@@ -369,4 +368,4 @@ class TestJiraInteraction(TestCase):
         attendees, jira_field = dut.get_info_from_relationship(action1, relationship_to_parent, self.coll)
 
         self.assertEqual(attendees, ['ABC', ' ZZZ'])
-        self.assertEqual(jira_field, 'MEETING-12345_2: Caption for action 1?')
+        self.assertEqual(jira_field, 'MEETING-12345_2: Action 1\'s caption?')
