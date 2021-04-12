@@ -208,5 +208,5 @@ def escape_special_characters(input_string):
     prepared_string = input_string
     for special_char in ("\\", "+", "-", "&", "|", "!", "(", ")", "{", "}", "[", "]", "^", "~", "*", "?", ":"):
         if special_char in prepared_string:
-            prepared_string = prepared_string.replace(special_char, "\\" + special_char)
+            prepared_string = prepared_string.replace(special_char, r"\\" + special_char)
     return prepared_string
