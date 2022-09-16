@@ -78,7 +78,7 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
 
         fields['project'] = project_id_or_key
         fields[jira_field_id] = jira_field
-        body = item.get_content()
+        body = item.content
         if not body:
             body = item.caption
         fields['description'] = settings.get('description_head', '') + body
@@ -115,7 +115,7 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
         try:
             issue.update(update={"timetracking": [{"edit": {"originalEstimate": effort}}]})
         except JIRAError:
-            issue.update(description="{}\n\nEffort estimate: {}".format(item.get_content(), effort))
+            issue.update(description="{}\n\nEffort estimate: {}".format(item.content, effort))
 
     for attendee in attendees:
         try:
