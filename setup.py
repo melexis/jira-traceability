@@ -30,9 +30,12 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+<<<<<<< HEAD
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Topic :: Automation',
+=======
+>>>>>>> ce1a3eba00ec13b1b76ea339640e97f5656a9fbc
         'Topic :: Documentation',
         'Topic :: Utilities',
     ],

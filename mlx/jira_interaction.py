@@ -67,9 +67,10 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
                                                            traceability_collection)
 
         jira_field_id = settings['jira_field_id']
+        jira_field_query_value = escape_special_characters(jira_field)
         matches = jira.search_issues("project={} and {} ~ {!r}".format(project_id_or_key,
                                                                        jira_field_id,
-                                                                       jira_field))
+                                                                       jira_field_query_value))
         if matches:
             if settings.get('warn_if_exists', False):
                 LOGGER.warning("Won't create a {} for item {!r} because the Jira API query to check to prevent "
@@ -81,7 +82,13 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         body = item.content
         if not body:
             body = item.caption
-        fields['description'] = settings.get('description_head', '') + body
+
+        description = settings.get('description_head', '') + body
+        for str_to_replace, attr_name in settings.get('description_str_to_attr', {}).items():
+            attribute = getattr(item, attr_name)
+            description = description.replace(str(str_to_replace), str(attribute))
+        fields['description'] = description
+
         if assignee and not settings.get('notify_watchers', False):
             fields['assignee'] = {'name': item.get_attribute('assignee')}
             assignee = ''
@@ -185,3 +192,21 @@ def get_info_from_relationship(item, config_for_parent, traceability_collection)
             if attr_value:
                 attendees = attr_value.split(',')
     return attendees, jira_field
+
+
+def escape_special_characters(input_string):
+    """ Escape special characters to avoid unwanted behavior.
+
+    Note that they are not stored in the index so you cannot search for them.
+
+    Args:
+        input_string (str): String to escape special characters of
+
+    Returns:
+        str: Input string that has its special characters escaped
+    """
+    prepared_string = input_string
+    for special_char in ("\\", "+", "-", "&", "|", "!", "(", ")", "{", "}", "[", "]", "^", "~", "*", "?", ":"):
+        if special_char in prepared_string:
+            prepared_string = prepared_string.replace(special_char, "\\" + special_char)
+    return prepared_string
