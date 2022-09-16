@@ -10,10 +10,6 @@
     :target: https://github.com/melexis/jira-traceability/actions/workflows/python-package.yml
     :alt: Build status
 
-.. image:: https://img.shields.io/badge/Documentation-published-brightgreen.svg
-    :target: https://melexis.github.io/jira-traceability/
-    :alt: Documentation
-
 .. image:: https://img.shields.io/badge/contributions-welcome-brightgreen.svg
     :target: https://github.com/melexis/jira-traceability/issues
     :alt: Contributions welcome
