@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 project_url = 'https://github.com/melexis/jira-traceability'
 
-requires = ['Sphinx>=2.1', 'jira', 'mlx.traceability>=6.0.0']
+requires = ['Sphinx>=2.1', 'jira', 'mlx.traceability>=9.0.0']
 
 setup(
     name='mlx.jira-traceability',
@@ -28,10 +28,11 @@ setup(
         'Operating System :: OS Independent',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Topic :: Automation',
         'Topic :: Documentation',
         'Topic :: Utilities',
     ],
@@ -39,6 +40,7 @@ setup(
     packages=find_packages(exclude=['tests', 'doc']),
     include_package_data=True,
     install_requires=requires,
+    python_requires='>=3.7',
     namespace_packages=['mlx'],
     keywords=[
         'traceability',

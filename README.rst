@@ -1,3 +1,19 @@
+.. image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+    :target: https://opensource.org/licenses/Apache-2.0
+    :alt: Apache 2.0 License
+
+.. image:: https://badge.fury.io/py/mlx.jira-traceability.svg
+    :target: https://badge.fury.io/py/mlx.jira-traceability
+    :alt: PyPI packaged release
+
+.. image:: https://github.com/melexis/jira-traceability/actions/workflows/python-package.yml/badge.svg?branch=main
+    :target: https://github.com/melexis/jira-traceability/actions/workflows/python-package.yml
+    :alt: Build status
+
+.. image:: https://img.shields.io/badge/contributions-welcome-brightgreen.svg
+    :target: https://github.com/melexis/jira-traceability/issues
+    :alt: Contributions welcome
+
 ============
 Introduction
 ============
