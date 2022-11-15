@@ -20,7 +20,7 @@ def jira_interaction(app):
             raise err
 
 
-def perform_consistency_check(app, doctree):
+def perform_consistency_check(app, env):
     """Consistency checker callback"""
     if app.config.traceability_jira_automation:
         jira_interaction(app)
