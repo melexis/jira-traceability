@@ -65,6 +65,10 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         assignee = item.get_attribute('assignee')
         attendees, jira_field = get_info_from_relationship(item, settings['relationship_to_parent'],
                                                            traceability_collection)
+        if settings.get('email_suffix'):
+            suffix = settings['email_suffix'].strip()
+            assignee = f"{assignee}{suffix}"
+            attendees = [f"{attendee}{suffix}" for attendee in attendees]
 
         jira_field_id = settings['jira_field_id']
         jira_field_query_value = escape_special_characters(jira_field)
@@ -90,7 +94,8 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         fields['description'] = description
 
         if assignee and not settings.get('notify_watchers', False):
-            fields['assignee'] = {'name': item.get_attribute('assignee')}
+            key = 'emailAddress' if settings.get('email_suffix') else 'name'
+            fields['assignee'] = {key: assignee}
             assignee = ''
 
         issue = push_item_to_jira(jira, {**fields, **general_fields}, item, attendees, assignee)
@@ -190,7 +195,7 @@ def get_info_from_relationship(item, config_for_parent, traceability_collection)
             jira_field = "{id}: {field}".format(id=parent_id, field=jira_field)  # prepend item ID of parent
             attr_value = parent.get_attribute('attendees')
             if attr_value:
-                attendees = attr_value.split(',')
+                attendees.extend((val.strip() for val in attr_value.split(',')))
     return attendees, jira_field
 
 
