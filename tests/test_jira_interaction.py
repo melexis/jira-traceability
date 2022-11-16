@@ -367,5 +367,5 @@ class TestJiraInteraction(TestCase):
 
         attendees, jira_field = dut.get_info_from_relationship(action1, relationship_to_parent, self.coll)
 
-        self.assertEqual(attendees, ['ABC', ' ZZZ'])
+        self.assertEqual(attendees, ['ABC', 'ZZZ'])
         self.assertEqual(jira_field, 'MEETING-12345_2: Action 1\'s caption?')
