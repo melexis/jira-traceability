@@ -53,7 +53,7 @@ Configuration
         'jira_field_id': 'summary',
         'issue_type': 'Task',
         'project_key_regex': r'ACTION-(?P<project>\d{5})_',
-        'project_key_prefix': 'MLX',
+        'project_key_prefix': 'MLX',  # MLX12345 for example
         'default_project': 'SWCC',
         'relationship_to_parent': ('depends_on', r'MEETING-[\w_]+'),
         'components': '[SW],[HW]',
