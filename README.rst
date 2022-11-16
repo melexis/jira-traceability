@@ -27,7 +27,7 @@ Usage
 =====
 
 --------------------
-Jira ticket creation
+Jira Ticket Creation
 --------------------
 
 Jira tickets that are based on traceable items can be automatically created by the plugin. A ticket gets created only
@@ -46,14 +46,14 @@ Configuration
     ]
 
     traceability_jira_automation = {
-        'api_endpoint': 'https://jira.atlassian.com/rest/api/latest/',
-        'username': 'my_username',
-        'password': 'my_password',
+        'api_endpoint': 'https://example.atlassian.com',
+        'username': 'abc@example.com',
+        'password': 'my_api_token',
         'item_to_ticket_regex': r'ACTION-12345_ACTION_\d+',
         'jira_field_id': 'summary',
         'issue_type': 'Task',
         'project_key_regex': r'ACTION-(?P<project>\d{5})_',
-        'project_key_prefix': 'MLX',
+        'project_key_prefix': 'MLX',  # MLX12345 for example
         'default_project': 'SWCC',
         'relationship_to_parent': ('depends_on', r'MEETING-[\w_]+'),
         'components': '[SW],[HW]',
@@ -63,6 +63,27 @@ Configuration
         'errors_to_warnings': True,
         'notify_watchers': False,
     }
+
+Jira Configuration
+------------------
+
+Jira Server
+^^^^^^^^^^^
+
+:api_endpoint: ``https://jira.example.com/jira``
+:username: ``abc``
+:password: ``my_password``
+
+
+Jira Cloud
+^^^^^^^^^^
+
+:api_endpoint: ``https://example.atlassian.com``
+:username: ``abc@example.com``
+:password: ``my_api_token``
+
+Plugin Configuration
+--------------------
 
 ``project_key_regex`` can optionally be defined. This regular expression with a named group *project* is used to
 extract a certain part of the item ID to determine the Jira project key. ``project_key_prefix`` can optionally be

@@ -7,6 +7,36 @@ from sphinx.util.logging import getLogger
 LOGGER = getLogger(__name__)
 
 
+def fetch_user(jira, username):
+    """ Fetch Jira User based on username, including inactive users.
+
+    If no matching user is found, a warning is logged and None is returned.
+    If multiple users are found, a warning is logged and the first returned user is used.
+
+    Args:
+        jira (jira.JIRA): Jira interface object
+        username (str): Username (should be email address in case of Jira Cloud)
+
+    Returns:
+        jira.User: User object found for username
+        None: No Jira user was found
+    """
+    is_jira_cloud = '@' in username
+    if is_jira_cloud:
+        users = jira.search_users(query=username, includeInactive=True)
+    else:
+        users = jira.search_users(user=username, includeInactive=True)
+    if len(users) != 1:
+        if len(users) == 0:
+            warning_msg = f"Could not find any Jira user based on {username!r}"
+        else:
+            warning_msg = f"Could not find a deterministic Jira user based on {username!r}: got {users}. Using first."
+        LOGGER.warning(warning_msg, location=__file__)
+    if users:
+        return users[0]
+    return None
+
+
 def create_jira_issues(settings, traceability_collection):
     """ Creates Jira issues using configuration variable ``traceability_jira_automation``.
 
@@ -62,9 +92,14 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
             LOGGER.warning("Could not determine a JIRA project key or id for item {!r}".format(item_id))
             continue
 
-        assignee = item.get_attribute('assignee')
+        assignee = item.get_attribute('assignee').strip()
         attendees, jira_field = get_info_from_relationship(item, settings['relationship_to_parent'],
                                                            traceability_collection)
+        username = settings['username']
+        if '@' in username:
+            suffix = username[username.index('@'):]
+            assignee = f"{assignee}{suffix}".lower()
+            attendees = [f"{attendee}{suffix}".lower() for attendee in attendees]
 
         jira_field_id = settings['jira_field_id']
         jira_field_query_value = escape_special_characters(jira_field)
@@ -90,7 +125,9 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         fields['description'] = description
 
         if assignee and not settings.get('notify_watchers', False):
-            fields['assignee'] = {'name': item.get_attribute('assignee')}
+            user = fetch_user(jira, assignee)
+            if user:
+                fields['assignee'] = {'id': user.accountId} if hasattr(user, 'accountId') else {'name': user.name}
             assignee = ''
 
         issue = push_item_to_jira(jira, {**fields, **general_fields}, item, attendees, assignee)
@@ -125,8 +162,12 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
             issue.update(description="{}\n\nEffort estimate: {}".format(item.content, effort))
 
     for attendee in attendees:
+        user = fetch_user(jira, attendee)
+        if user is None:
+            continue
+        account_id_or_name = user.accountId if hasattr(user, 'accountId') else user.name
         try:
-            jira.add_watcher(issue, attendee.strip())
+            jira.add_watcher(issue, account_id_or_name)
         except JIRAError as err:
             LOGGER.warning("Jira interaction failed: item {}: error code {}: {}"
                            .format(item.identifier, err.status_code, err.response.text))
@@ -190,7 +231,7 @@ def get_info_from_relationship(item, config_for_parent, traceability_collection)
             jira_field = "{id}: {field}".format(id=parent_id, field=jira_field)  # prepend item ID of parent
             attr_value = parent.get_attribute('attendees')
             if attr_value:
-                attendees = attr_value.split(',')
+                attendees.extend((val.strip() for val in attr_value.split(',')))
     return attendees, jira_field
 
 
