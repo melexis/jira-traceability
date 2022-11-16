@@ -98,8 +98,8 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         username = settings['username']
         if '@' in username:
             suffix = username[username.index('@'):]
-            assignee = f"{assignee}{suffix}"
-            attendees = [f"{attendee}{suffix}" for attendee in attendees]
+            assignee = f"{assignee}{suffix}".lower()
+            attendees = [f"{attendee}{suffix}".lower() for attendee in attendees]
 
         jira_field_id = settings['jira_field_id']
         jira_field_query_value = escape_special_characters(jira_field)
