@@ -10,6 +10,17 @@ from mlx.traceable_item import TraceableItem
 import mlx.jira_interaction as dut
 
 
+def produce_fake_users(**kwargs):
+    users = []
+    if kwargs.get('name') is not None:
+        User = namedtuple('User', 'name')
+        users.append(User(kwargs['name']))
+    if kwargs.get('query') is not None:
+        User = namedtuple('User', 'accountId')
+        users.append(User('bf3157418d89e30046118185'))
+    return users
+
+
 @mock.patch('mlx.jira_interaction.JIRA')
 class TestJiraInteraction(TestCase):
     def setUp(self):
@@ -22,7 +33,7 @@ class TestJiraInteraction(TestCase):
             'project': 'MLX12345',
         }
         self.settings = {
-            'api_endpoint': 'https://jira.atlassian.com/rest/api/latest/',
+            'api_endpoint': 'https://jira.example.com/jira',
             'username': 'my_username',
             'password': 'my_password',
             'jira_field_id': 'summary',
@@ -41,10 +52,10 @@ class TestJiraInteraction(TestCase):
         parent = TraceableItem('MEETING-12345_2')
         action1 = TraceableItem('ACTION-12345_ACTION_1')
         action1.caption = 'Action 1\'s caption?'
-        action1.set_content('Description for action 1')
+        action1.content = 'Description for action 1'
         action2 = TraceableItem('ACTION-12345_ACTION_2')
         action2.caption = 'Caption for action 2'
-        action2.set_content('')
+        action2.content = ''
         action3 = TraceableItem('ACTION-98765_ACTION_55')
         item1 = TraceableItem('ITEM-12345_1')
 
@@ -65,9 +76,9 @@ class TestJiraInteraction(TestCase):
             self.coll.add_item(item)
 
         self.coll.add_relation_pair('depends_on', 'impacts_on')
-        self.coll.add_relation(action1.id, 'impacts_on', item1.id)  # to be ignored
-        self.coll.add_relation(action1.id, 'depends_on', parent.id)  # to be taken into account
-        self.coll.add_relation(action2.id, 'impacts_on', parent.id)  # to be ignored
+        self.coll.add_relation(action1.identifier, 'impacts_on', item1.identifier)  # to be ignored
+        self.coll.add_relation(action1.identifier, 'depends_on', parent.identifier)  # to be taken into account
+        self.coll.add_relation(action2.identifier, 'impacts_on', parent.identifier)  # to be ignored
 
     def test_missing_endpoint(self, *_):
         self.settings.pop('api_endpoint')
@@ -117,6 +128,7 @@ class TestJiraInteraction(TestCase):
     def test_create_jira_issues_unique(self, jira):
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
+        jira_mock.search_users.side_effect = produce_fake_users
         with self.assertLogs(level=WARNING) as cm:
             warning('Dummy log')
             dut.create_jira_issues(self.settings, self.coll)
@@ -126,7 +138,7 @@ class TestJiraInteraction(TestCase):
             ['WARNING:root:Dummy log']
         )
         self.assertEqual(jira.call_args,
-                         mock.call({'server': 'https://jira.atlassian.com/rest/api/latest/'},
+                         mock.call({'server': 'https://jira.example.com/jira'},
                                    basic_auth=('my_username', 'my_password')))
         self.assertEqual(jira_mock.search_issues.call_args_list,
                          [
@@ -136,9 +148,8 @@ class TestJiraInteraction(TestCase):
                          ])
 
         issue = jira_mock.create_issue.return_value
-        self.assertEqual(
-            jira_mock.create_issue.call_args_list,
-            [
+        out = jira_mock.create_issue.call_args_list
+        ref = [
                 mock.call(
                     summary='MEETING-12345_2: Action 1\'s caption?',
                     description='Description for action 1',
@@ -151,7 +162,8 @@ class TestJiraInteraction(TestCase):
                     assignee={'name': 'ZZZ'},
                     **self.general_fields
                 ),
-            ])
+            ]
+        self.assertEqual(out, ref)
 
         self.assertEqual(
             issue.update.call_args_list,
@@ -261,6 +273,7 @@ class TestJiraInteraction(TestCase):
 
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
+        jira_mock.search_users.side_effect = produce_fake_users
         dut.create_jira_issues(self.settings, self.coll)
 
         self.assertEqual(
@@ -281,6 +294,7 @@ class TestJiraInteraction(TestCase):
             ])
 
     def test_add_watcher_jira_error(self, jira):
+        self.maxDiff = None
         Response = namedtuple('Response', 'text')
 
         def jira_add_watcher_mock(*_):
@@ -289,6 +303,7 @@ class TestJiraInteraction(TestCase):
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
         jira_mock.add_watcher.side_effect = jira_add_watcher_mock
+        jira_mock.search_users.side_effect = produce_fake_users
         with self.assertLogs(level=WARNING) as cm:
             dut.create_jira_issues(self.settings, self.coll)
 
@@ -307,10 +322,11 @@ class TestJiraInteraction(TestCase):
         self.settings['relationship_to_parent'] = ('depends_on', r'ZZZ-[\w_]+')
         alternative_parent = TraceableItem('ZZZ-TO_BE_PRIORITIZED')
         # to be prioritized over MEETING-12345_2
-        self.coll.add_relation('ACTION-12345_ACTION_1', 'depends_on', alternative_parent.id)
+        self.coll.add_relation('ACTION-12345_ACTION_1', 'depends_on', alternative_parent.identifier)
 
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
+        jira_mock.search_users.side_effect = produce_fake_users
         with self.assertLogs(level=WARNING) as cm:
             warning('Dummy log')
             dut.create_jira_issues(self.settings, self.coll)
@@ -349,7 +365,7 @@ class TestJiraInteraction(TestCase):
         relationship_to_parent = ('depends_on', r'ZZZ-[\w_]+')
         alternative_parent = TraceableItem('ZZZ-TO_BE_PRIORITIZED')
         # to be prioritized over MEETING-12345_2
-        self.coll.add_relation('ACTION-12345_ACTION_1', 'depends_on', alternative_parent.id)
+        self.coll.add_relation('ACTION-12345_ACTION_1', 'depends_on', alternative_parent.identifier)
         action1 = self.coll.get_item('ACTION-12345_ACTION_1')
 
         attendees, jira_field = dut.get_info_from_relationship(action1, relationship_to_parent, self.coll)
@@ -362,7 +378,7 @@ class TestJiraInteraction(TestCase):
         relationship_to_parent = 'depends_on'
         alternative_parent = TraceableItem('ZZZ-TO_BE_IGNORED')
         # not to be prioritized over MEETING-12345_2 (natural sorting)
-        self.coll.add_relation('ACTION-12345_ACTION_1', 'depends_on', alternative_parent.id)
+        self.coll.add_relation('ACTION-12345_ACTION_1', 'depends_on', alternative_parent.identifier)
         action1 = self.coll.get_item('ACTION-12345_ACTION_1')
 
         attendees, jira_field = dut.get_info_from_relationship(action1, relationship_to_parent, self.coll)
