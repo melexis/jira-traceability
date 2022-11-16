@@ -66,7 +66,7 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         attendees, jira_field = get_info_from_relationship(item, settings['relationship_to_parent'],
                                                            traceability_collection)
         username = settings['username']
-        if '@' in username and jira._is_cloud:  # pylint: disable=protected-access
+        if '@' in username:
             suffix = username[username.index('@'):]
             assignee = f"{assignee}{suffix}"
             attendees = [f"{attendee}{suffix}" for attendee in attendees]
@@ -95,14 +95,15 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         fields['description'] = description
 
         if assignee and not settings.get('notify_watchers', False):
-            if jira._is_cloud:  # pylint: disable=protected-access
+            if '@' in assignee:
                 users = jira.search_users(query=assignee)
             else:
                 users = jira.search_users(name=assignee)
             if len(users) != 1:
                 LOGGER.warning(f"Could not find a deterministic assignee based on {assignee!r}: got {users}")
             else:
-                fields['assignee'] = {'id': users[0].accountId}
+                user = users[0]
+                fields['assignee'] = {'id': user.accountId} if hasattr(user, 'accountId') else {'name': user.name}
             assignee = ''
 
         issue = push_item_to_jira(jira, {**fields, **general_fields}, item, attendees, assignee)
