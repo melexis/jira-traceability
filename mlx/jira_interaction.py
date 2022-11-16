@@ -25,7 +25,7 @@ def fetch_user(jira, username):
     if is_jira_cloud:
         users = jira.search_users(query=username, includeInactive=True)
     else:
-        users = jira.search_users(name=username, includeInactive=True)
+        users = jira.search_users(user=username, includeInactive=True)
     if len(users) != 1:
         if len(users) == 0:
             warning_msg = f"Could not find any Jira user based on {username!r}"

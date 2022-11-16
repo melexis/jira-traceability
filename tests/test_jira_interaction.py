@@ -12,9 +12,9 @@ import mlx.jira_interaction as dut
 
 def produce_fake_users(**kwargs):
     users = []
-    if kwargs.get('name') is not None:
+    if kwargs.get('user') is not None:
         User = namedtuple('User', 'name')
-        users.append(User(kwargs['name']))
+        users.append(User(kwargs['user']))
     if kwargs.get('query') is not None:
         User = namedtuple('User', 'accountId')
         users.append(User('bf3157418d89e30046118185'))
