@@ -169,8 +169,8 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
         try:
             jira.add_watcher(issue, account_id_or_name)
         except JIRAError as err:
-            LOGGER.warning("Jira interaction failed: item {}: error code {}: {}"
-                           .format(item.identifier, err.status_code, err.response.text))
+            LOGGER.warning(f"Jira interaction failed: item {item.identifier}: error code {err.status_code}: "
+                           f"{getattr(err.response, 'text', '<<no error description>>')}")
 
     if assignee:
         jira.assign_issue(issue, assignee)
