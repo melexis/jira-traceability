@@ -171,8 +171,8 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
         user = fetch_user(jira, attendee)
         if user is None:
             continue
-        account_id_or_name = user.accountId if hasattr(user, 'accountId') else user.name
-        jira.add_watcher(issue, account_id_or_name)
+        user_identifier = user.displayName if hasattr(user, 'displayName') else user.accountId
+        jira.add_watcher(issue, user_identifier)
 
     if assignee:
         jira.assign_issue(issue, assignee)
