@@ -4,7 +4,7 @@ from re import match, search
 from jira import JIRA, JIRAError
 from sphinx.util.logging import getLogger
 
-LOGGER = getLogger(__name__)
+LOGGER = getLogger('mlx.jira_traceability')
 
 
 def fetch_user(jira, username):

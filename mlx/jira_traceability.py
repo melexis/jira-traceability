@@ -2,7 +2,7 @@ from sphinx.util.logging import getLogger
 
 from .jira_interaction import create_jira_issues
 
-LOGGER = getLogger(__name__)
+LOGGER = getLogger('mlx.jira_traceability')
 
 
 def jira_interaction(app):
