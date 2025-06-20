@@ -3,6 +3,7 @@ from re import match, search
 
 from jira import JIRA, JIRAError
 from sphinx.util.logging import getLogger
+from .jira_utils import format_jira_error
 
 LOGGER = getLogger('mlx.jira_traceability')
 
@@ -65,8 +66,12 @@ def create_jira_issues(settings, traceability_collection):
 
     relevant_item_ids = traceability_collection.get_items(settings['item_to_ticket_regex'])
     if relevant_item_ids:
-        jira = JIRA({"server": settings['api_endpoint']}, basic_auth=(settings['username'], settings['password']))
-        create_unique_issues(relevant_item_ids, jira, general_fields, settings, traceability_collection)
+        try:
+            jira = JIRA({"server": settings['api_endpoint']}, basic_auth=(settings['username'], settings['password']))
+            create_unique_issues(relevant_item_ids, jira, general_fields, settings, traceability_collection)
+        except JIRAError as err:
+            error_msg = format_jira_error(err)
+            raise Exception(error_msg) from err
 
 
 def create_unique_issues(item_ids, jira, general_fields, settings, traceability_collection):
@@ -159,6 +164,7 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
         try:
             issue.update(update={"timetracking": [{"edit": {"originalEstimate": effort}}]})
         except JIRAError:
+            # If effort update fails, append to description instead
             issue.update(description="{}\n\nEffort estimate: {}".format(item.content, effort))
 
     for attendee in attendees:
@@ -166,11 +172,7 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
         if user is None:
             continue
         account_id_or_name = user.accountId if hasattr(user, 'accountId') else user.name
-        try:
-            jira.add_watcher(issue, account_id_or_name)
-        except JIRAError as err:
-            LOGGER.warning(f"Jira interaction failed: item {item.identifier}: error code {err.status_code}: "
-                           f"{getattr(err.response, 'text', '<<no error description>>')}")
+        jira.add_watcher(issue, account_id_or_name)
 
     if assignee:
         jira.assign_issue(issue, assignee)
