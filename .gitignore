@@ -129,4 +129,4 @@ dmypy.json
 .pyre/
 
 # Offline version file
-mlx/__version__.py
+mlx/jira_traceability/_version.py

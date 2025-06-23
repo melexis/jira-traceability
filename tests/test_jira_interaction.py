@@ -4,10 +4,8 @@ from unittest import TestCase, mock
 
 from jira import JIRAError
 
-from mlx.traceable_attribute import TraceableAttribute
-from mlx.traceable_collection import TraceableCollection
-from mlx.traceable_item import TraceableItem
-import mlx.jira_interaction as dut
+from mlx.traceability import TraceableAttribute, TraceableCollection, TraceableItem
+import mlx.jira_traceability.jira_interaction as dut
 
 
 def produce_fake_users(**kwargs):
@@ -21,7 +19,7 @@ def produce_fake_users(**kwargs):
     return users
 
 
-@mock.patch('mlx.jira_interaction.JIRA')
+@mock.patch('mlx.jira_traceability.jira_interaction.JIRA')
 class TestJiraInteraction(TestCase):
     def setUp(self):
         self.general_fields = {
@@ -86,7 +84,7 @@ class TestJiraInteraction(TestCase):
             dut.create_jira_issues(self.settings, None)
         self.assertEqual(
             cm.output,
-            ["WARNING:sphinx.mlx.jira_interaction:Jira interaction failed: configuration is "
+            ["WARNING:sphinx.mlx.jira_traceability.jira_interaction:Jira interaction failed: configuration is "
              "missing mandatory values for keys ['api_endpoint']"]
         )
 
@@ -96,7 +94,7 @@ class TestJiraInteraction(TestCase):
             dut.create_jira_issues(self.settings, None)
         self.assertEqual(
             cm.output,
-            ["WARNING:sphinx.mlx.jira_interaction:Jira interaction failed: configuration is "
+            ["WARNING:sphinx.mlx.jira_traceability.jira_interaction:Jira interaction failed: configuration is "
              "missing mandatory values for keys ['username']"]
         )
 
@@ -108,7 +106,7 @@ class TestJiraInteraction(TestCase):
             dut.create_jira_issues(self.settings, None)
         self.assertEqual(
             cm.output,
-            ["WARNING:sphinx.mlx.jira_interaction:Jira interaction failed: configuration is "
+            ["WARNING:sphinx.mlx.jira_traceability.jira_interaction:Jira interaction failed: configuration is "
              "missing mandatory values for keys {}".format(mandatory_keys)]
         )
 
@@ -121,7 +119,7 @@ class TestJiraInteraction(TestCase):
             dut.create_jira_issues(self.settings, None)
         self.assertEqual(
             cm.output,
-            ["WARNING:sphinx.mlx.jira_interaction:Jira interaction failed: configuration is "
+            ["WARNING:sphinx.mlx.jira_traceability.jira_interaction:Jira interaction failed: configuration is "
              "missing mandatory values for keys ['password']"]
         )
 
@@ -244,10 +242,10 @@ class TestJiraInteraction(TestCase):
 
         self.assertEqual(
             cm.output,
-            ["WARNING:sphinx.mlx.jira_interaction:Won't create a Task for item "
+            ["WARNING:sphinx.mlx.jira_traceability.jira_interaction:Won't create a Task for item "
              "'ACTION-12345_ACTION_1' because the Jira API query to check to prevent "
              "duplication returned ['Jira already contains this ticket']",
-             "WARNING:sphinx.mlx.jira_interaction:Won't create a Task for item "
+             "WARNING:sphinx.mlx.jira_traceability.jira_interaction:Won't create a Task for item "
              "'ACTION-12345_ACTION_2' because the Jira API query to check to prevent "
              "duplication returned ['Jira already contains this ticket']"]
         )
@@ -307,8 +305,8 @@ class TestJiraInteraction(TestCase):
         with self.assertLogs(level=WARNING) as cm:
             dut.create_jira_issues(self.settings, self.coll)
 
-        error_msg = ("WARNING:sphinx.mlx.jira_interaction:Jira interaction failed: item ACTION-12345_ACTION_1: "
-                     "error code 401: dummy msg")
+        error_msg = ("WARNING:sphinx.mlx.jira_traceability.jira_interaction:Jira interaction failed: "
+                     "item ACTION-12345_ACTION_1: error code 401: dummy msg")
         self.assertEqual(
             cm.output,
             [error_msg, error_msg]
