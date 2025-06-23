@@ -44,7 +44,7 @@ zip-safe = false
 include-package-data = true
 
 [tool.setuptools.packages.find]
-namespaces = false
+namespaces = true
 
 [tool.setuptools_scm]
 write_to = "mlx/jira_traceability/_version.py"
