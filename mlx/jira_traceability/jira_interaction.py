@@ -3,38 +3,9 @@ from re import match, search
 
 from jira import JIRA, JIRAError
 from sphinx.util.logging import getLogger
+from .jira_utils import format_jira_error
 
-LOGGER = getLogger(__name__)
-
-
-def fetch_user(jira, username):
-    """ Fetch Jira User based on username, including inactive users.
-
-    If no matching user is found, a warning is logged and None is returned.
-    If multiple users are found, a warning is logged and the first returned user is used.
-
-    Args:
-        jira (jira.JIRA): Jira interface object
-        username (str): Username (should be email address in case of Jira Cloud)
-
-    Returns:
-        jira.User: User object found for username
-        None: No Jira user was found
-    """
-    is_jira_cloud = '@' in username
-    if is_jira_cloud:
-        users = jira.search_users(query=username, includeInactive=True)
-    else:
-        users = jira.search_users(user=username, includeInactive=True)
-    if len(users) != 1:
-        if len(users) == 0:
-            warning_msg = f"Could not find any Jira user based on {username!r}"
-        else:
-            warning_msg = f"Could not find a deterministic Jira user based on {username!r}: got {users}. Using first."
-        LOGGER.warning(warning_msg, location=__file__)
-    if users:
-        return users[0]
-    return None
+LOGGER = getLogger('mlx.jira_traceability')
 
 
 def create_jira_issues(settings, traceability_collection):
@@ -65,8 +36,12 @@ def create_jira_issues(settings, traceability_collection):
 
     relevant_item_ids = traceability_collection.get_items(settings['item_to_ticket_regex'])
     if relevant_item_ids:
-        jira = JIRA({"server": settings['api_endpoint']}, basic_auth=(settings['username'], settings['password']))
-        create_unique_issues(relevant_item_ids, jira, general_fields, settings, traceability_collection)
+        try:
+            jira = JIRA({"server": settings['api_endpoint']}, basic_auth=(settings['username'], settings['password']))
+            create_unique_issues(relevant_item_ids, jira, general_fields, settings, traceability_collection)
+        except JIRAError as err:
+            error_msg = format_jira_error(err)
+            raise Exception(error_msg) from err
 
 
 def create_unique_issues(item_ids, jira, general_fields, settings, traceability_collection):
@@ -125,9 +100,7 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         fields['description'] = description
 
         if assignee and not settings.get('notify_watchers', False):
-            user = fetch_user(jira, assignee)
-            if user:
-                fields['assignee'] = {'id': user.accountId} if hasattr(user, 'accountId') else {'name': user.name}
+            fields['assignee'] = {'name': assignee}
             assignee = ''
 
         issue = push_item_to_jira(jira, {**fields, **general_fields}, item, attendees, assignee)
@@ -159,19 +132,14 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
         try:
             issue.update(update={"timetracking": [{"edit": {"originalEstimate": effort}}]})
         except JIRAError:
+            # If effort update fails, append to description instead
             issue.update(description="{}\n\nEffort estimate: {}".format(item.content, effort))
 
     for attendee in attendees:
-        user = fetch_user(jira, attendee)
-        if user is None:
-            continue
-        account_id_or_name = user.accountId if hasattr(user, 'accountId') else user.name
         try:
-            jira.add_watcher(issue, account_id_or_name)
+            jira.add_watcher(issue, attendee)
         except JIRAError as err:
-            LOGGER.warning("Jira interaction failed: item {}: error code {}: {}"
-                           .format(item.identifier, err.status_code, err.response.text))
-
+            LOGGER.warning("Could not add watcher {} to issue {}: {}".format(attendee, issue.key, err.text))
     if assignee:
         jira.assign_issue(issue, assignee)
     return issue
