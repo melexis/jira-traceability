@@ -5,7 +5,7 @@ from unittest import TestCase, mock
 from jira import JIRAError
 
 from mlx.traceability import TraceableAttribute, TraceableCollection, TraceableItem
-import mlx.jira_interaction as dut
+import mlx.jira_traceability.jira_interaction as dut
 
 
 def produce_fake_users(**kwargs):
@@ -19,7 +19,7 @@ def produce_fake_users(**kwargs):
     return users
 
 
-@mock.patch('mlx.jira_interaction.JIRA')
+@mock.patch('mlx.jira_traceability.jira_interaction.JIRA')
 class TestJiraInteraction(TestCase):
     def setUp(self):
         self.general_fields = {

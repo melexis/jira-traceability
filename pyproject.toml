@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=77.0", "setuptools-scm>=8.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlx.jira-traceability"
+dynamic = ["version"]
+authors = [
+    {name = "Jasper Craeghs", email = "jce@melexis.com"},
+]
+description = "Sphinx plugin to create Jira tickets based on traceable items"
+readme = "README.rst"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Documentation :: Sphinx",
+    "Topic :: Software Development :: Bug Tracking",
+    "Topic :: Utilities",
+]
+keywords = ["traceability", "jira", "sphinx"]
+dependencies = [
+    "Sphinx>=2.1",
+    "jira>=3.2.0",
+    "mlx.traceability>=11.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/melexis/jira-traceability"
+Repository = "https://github.com/melexis/jira-traceability"
+Issues = "https://github.com/melexis/jira-traceability/issues"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+namespaces = true
+
+[tool.setuptools_scm]
+write_to = "mlx/jira_traceability/_version.py"
+version_scheme = "no-guess-dev"
+
+[tool.pytest.ini_options]
+norecursedirs = ".tox"
+
+[tool.flake8]
+exclude = [".git", "*conf.py", "build", "dist"]
+max-line-length = 120
+
+[tool.check-manifest]
+ignore = ["*.yml"]
