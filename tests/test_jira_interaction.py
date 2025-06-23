@@ -4,9 +4,7 @@ from unittest import TestCase, mock
 
 from jira import JIRAError
 
-from mlx.traceable_attribute import TraceableAttribute
-from mlx.traceable_collection import TraceableCollection
-from mlx.traceable_item import TraceableItem
+from mlx.traceability import TraceableAttribute, TraceableCollection, TraceableItem
 import mlx.jira_interaction as dut
 
 
