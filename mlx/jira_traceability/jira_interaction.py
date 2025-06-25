@@ -3,7 +3,7 @@ from re import match, search
 
 from jira import JIRA, JIRAError
 from sphinx.util.logging import getLogger
-from .jira_utils import format_jira_error
+from .jira_utils import format_jira_error, validate_components
 
 LOGGER = getLogger('mlx.jira_traceability')
 
@@ -102,6 +102,11 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         if assignee and not settings.get('notify_watchers', False):
             fields['assignee'] = {'name': assignee}
             assignee = ''
+
+        # Validate components against Jira project
+        if 'components' in general_fields:
+            general_fields['components'] = validate_components(jira, project_id_or_key,
+                                                               general_fields['components'])
 
         issue = push_item_to_jira(jira, {**fields, **general_fields}, item, attendees, assignee)
         print("mlx.jira-traceability: created Jira ticket for item {} here: {}".format(item_id, issue.permalink()))
