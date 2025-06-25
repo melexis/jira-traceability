@@ -19,6 +19,15 @@ def produce_fake_users(**kwargs):
     return users
 
 
+def produce_fake_components():
+    """Produce fake components for project_components mock"""
+    Component = namedtuple('Component', 'name')
+    return [
+        Component('[SW]'),
+        Component('[HW]'),
+    ]
+
+
 @mock.patch('mlx.jira_traceability.jira_interaction.JIRA')
 class TestJiraInteraction(TestCase):
     def setUp(self):
@@ -127,6 +136,7 @@ class TestJiraInteraction(TestCase):
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             warning('Dummy log')
             dut.create_jira_issues(self.settings, self.coll)
@@ -185,6 +195,7 @@ class TestJiraInteraction(TestCase):
         """
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
+        jira_mock.project_components.return_value = produce_fake_components()
         self.settings['notify_watchers'] = True
 
         with self.assertLogs(level=WARNING):
@@ -222,6 +233,7 @@ class TestJiraInteraction(TestCase):
 
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
+        jira_mock.project_components.return_value = produce_fake_components()
         issue = jira_mock.create_issue.return_value
         issue.update.side_effect = jira_update_mock
         dut.create_jira_issues(self.settings, self.coll)
@@ -237,6 +249,7 @@ class TestJiraInteraction(TestCase):
     def test_prevent_duplication(self, jira):
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = ['Jira already contains this ticket']
+        jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             dut.create_jira_issues(self.settings, self.coll)
 
@@ -255,6 +268,7 @@ class TestJiraInteraction(TestCase):
         self.settings.pop('warn_if_exists')
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = ['Jira already contains this ticket']
+        jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             warning('Dummy log')
             dut.create_jira_issues(self.settings, self.coll)
@@ -272,6 +286,7 @@ class TestJiraInteraction(TestCase):
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.return_value = produce_fake_components()
         dut.create_jira_issues(self.settings, self.coll)
 
         self.assertEqual(
@@ -301,6 +316,7 @@ class TestJiraInteraction(TestCase):
         jira_mock.search_issues.return_value = []
         jira_mock.add_watcher.side_effect = jira_add_watcher_mock
         jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             dut.create_jira_issues(self.settings, self.coll)
 
@@ -327,6 +343,7 @@ class TestJiraInteraction(TestCase):
         jira_mock = jira.return_value
         jira_mock.search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             warning('Dummy log')
             dut.create_jira_issues(self.settings, self.coll)
@@ -385,3 +402,124 @@ class TestJiraInteraction(TestCase):
 
         self.assertEqual(attendees, ['ABC', 'ZZZ'])
         self.assertEqual(jira_field, 'MEETING-12345_2: Action 1\'s caption?')
+
+    def test_component_stripping(self, jira):
+        """ Test that component names get stripped of square brackets when the original doesn't exist """
+        def produce_stripped_components():
+            Component = namedtuple('Component', 'name')
+            return [
+                Component('SW'),  # Note: no brackets
+                Component('HW'),  # Note: no brackets
+            ]
+
+        jira_mock = jira.return_value
+        jira_mock.search_issues.return_value = []
+        jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.return_value = produce_stripped_components()
+
+        # Use INFO level to capture the stripped component messages
+        with self.assertLogs(level='INFO') as cm:
+            dut.create_jira_issues(self.settings, self.coll)
+
+        # Check that info messages about component stripping are logged
+        stripped_logs = [log for log in cm.output if 'Using stripped component name' in log]
+        self.assertEqual(len(stripped_logs), 2)  # Should have 2 stripped components
+
+        # Check that the create_issue calls use the stripped component names
+        out = jira_mock.create_issue.call_args_list
+
+        # Expected components should be stripped
+        expected_general_fields = self.general_fields.copy()
+        expected_general_fields['components'] = [{'name': 'SW'}, {'name': 'HW'}]
+
+        ref = [
+            mock.call(
+                summary='MEETING-12345_2: Action 1\'s caption?',
+                description='Description for action 1',
+                assignee={'name': 'ABC'},
+                **expected_general_fields
+            ),
+            mock.call(
+                summary='Caption for action 2',
+                description='Caption for action 2',
+                assignee={'name': 'ZZZ'},
+                **expected_general_fields
+            ),
+        ]
+        self.assertEqual(out, ref)
+
+    def test_invalid_components_warning(self, jira):
+        """ Test that invalid components generate warnings """
+        def produce_different_components():
+            Component = namedtuple('Component', 'name')
+            return [
+                Component('DOCS'),  # Different component names
+                Component('QA'),
+            ]
+
+        jira_mock = jira.return_value
+        jira_mock.search_issues.return_value = []
+        jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.return_value = produce_different_components()
+
+        with self.assertLogs(level=WARNING) as cm:
+            dut.create_jira_issues(self.settings, self.coll)
+
+        # Check that warning about invalid components is logged
+        # With caching optimization, validation happens once per project
+        invalid_component_logs = [log for log in cm.output if 'Invalid components found' in log]
+        self.assertEqual(len(invalid_component_logs), 1)  # Should warn once per project
+
+        # Verify the warning message contains the invalid component names
+        self.assertIn('[SW], [HW]', invalid_component_logs[0])
+
+    def test_component_validation_failure(self, jira):
+        """ Test that component validation failure falls back to original components """
+        def jira_project_components_error(*_):
+            raise JIRAError(status_code=404, text='Project not found')
+
+        jira_mock = jira.return_value
+        jira_mock.search_issues.return_value = []
+        jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.side_effect = jira_project_components_error
+
+        with self.assertLogs(level=WARNING) as cm:
+            dut.create_jira_issues(self.settings, self.coll)
+
+        # Check that warning about validation failure is logged
+        # With caching optimization, validation happens once per project
+        validation_failure_logs = [log for log in cm.output if 'Failed to validate components' in log]
+        self.assertEqual(len(validation_failure_logs), 1)  # Should warn once per project
+
+        # Check that the create_issue calls use the original component names (fallback behavior)
+        out = jira_mock.create_issue.call_args_list
+        ref = [
+            mock.call(
+                summary='MEETING-12345_2: Action 1\'s caption?',
+                description='Description for action 1',
+                assignee={'name': 'ABC'},
+                **self.general_fields  # Original components should be used
+            ),
+            mock.call(
+                summary='Caption for action 2',
+                description='Caption for action 2',
+                assignee={'name': 'ZZZ'},
+                **self.general_fields  # Original components should be used
+            ),
+        ]
+        self.assertEqual(out, ref)
+
+    def test_component_validation_caching(self, jira):
+        """ Test that component validation is cached per project """
+        jira_mock = jira.return_value
+        jira_mock.search_issues.return_value = []
+        jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.return_value = produce_fake_components()
+
+        dut.create_jira_issues(self.settings, self.coll)
+
+        # Verify that project_components was called only once (cached for subsequent items)
+        self.assertEqual(jira_mock.project_components.call_count, 1)
+
+        # Verify it was called with the correct project
+        jira_mock.project_components.assert_called_with('MLX12345')

@@ -56,6 +56,9 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         settings (dict): Configuration for this feature
         traceability_collection (TraceableCollection): Collection of all traceability items
     """
+    # Cache for validated components per project to avoid repeated validation
+    validated_components_cache = {}
+
     for item_id in item_ids:
         fields = {}
         item = traceability_collection.get_item(item_id)
@@ -103,12 +106,18 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
             fields['assignee'] = {'name': assignee}
             assignee = ''
 
-        # Validate components against Jira project
-        if 'components' in general_fields:
-            general_fields['components'] = validate_components(jira, project_id_or_key,
-                                                               general_fields['components'])
+        # Validate components against Jira project (cached per project)
+        project_general_fields = general_fields.copy()
+        if 'components' in project_general_fields:
+            if project_id_or_key not in validated_components_cache:
+                # Validate components for this project and cache the result
+                validated_components_cache[project_id_or_key] = validate_components(
+                    jira, project_id_or_key, project_general_fields['components']
+                )
+            # Use cached validated components
+            project_general_fields['components'] = validated_components_cache[project_id_or_key]
 
-        issue = push_item_to_jira(jira, {**fields, **general_fields}, item, attendees, assignee)
+        issue = push_item_to_jira(jira, {**fields, **project_general_fields}, item, attendees, assignee)
         print("mlx.jira-traceability: created Jira ticket for item {} here: {}".format(item_id, issue.permalink()))
 
 
