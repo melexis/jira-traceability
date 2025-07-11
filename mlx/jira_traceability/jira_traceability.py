@@ -2,6 +2,11 @@ from sphinx.util.logging import getLogger
 
 from .jira_interaction import create_jira_issues
 
+try:
+    from ._version import __version__
+except ImportError:
+    __version__ = "unknown"
+
 LOGGER = getLogger('mlx.jira_traceability')
 
 
@@ -33,3 +38,9 @@ def setup(app):
     app.add_config_value('traceability_jira_automation', {}, 'env')
 
     app.connect('env-check-consistency', perform_consistency_check)
+
+    return {
+        'version': __version__,
+        'parallel_read_safe': True,
+        'parallel_write_safe': True,
+    }
