@@ -14,8 +14,11 @@ def produce_fake_users(**kwargs):
         User = namedtuple('User', 'name')
         users.append(User(kwargs['user']))
     if kwargs.get('query') is not None:
-        User = namedtuple('User', 'accountId')
-        users.append(User('bf3157418d89e30046118185'))
+        # Only return accountId for 'ABC', not for 'ZZZ'
+        if kwargs['query'] == 'ABC':
+            User = namedtuple('User', 'accountId')
+            users.append(User('bf3157418d89e30046118185'))
+        # For other users like 'ZZZ', return empty list (no accountId found)
     return users
 
 
@@ -134,7 +137,7 @@ class TestJiraInteraction(TestCase):
 
     def test_create_jira_issues_unique(self, jira):
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
@@ -148,34 +151,43 @@ class TestJiraInteraction(TestCase):
         self.assertEqual(jira.call_args,
                          mock.call({'server': 'https://jira.example.com/jira'},
                                    basic_auth=('my_username', 'my_password')))
-        self.assertEqual(jira_mock.search_issues.call_args_list,
+        self.assertEqual(jira_mock.enhanced_search_issues.call_args_list,
                          [
                              mock.call(
-                                 'project=MLX12345 and summary ~ "MEETING\\\\-12345_2\\\\: Action 1\'s caption\\\\?"'),
-                             mock.call("project=MLX12345 and summary ~ 'Caption for action 2'"),
+                                 jql='project=MLX12345 and summary ~ "MEETING\\\\-12345_2\\\\: Action 1\'s caption\\\\?"',
+                                 maxResults=1),
+                             mock.call(jql="project=MLX12345 and summary ~ 'Caption for action 2'", maxResults=1),
                          ])
 
         issue = jira_mock.create_issue.return_value
         out = jira_mock.create_issue.call_args_list
-        ref = [
-                mock.call(
-                    summary='MEETING-12345_2: Action 1\'s caption?',
-                    description='Description for action 1',
-                    assignee={'name': 'ABC'},
-                    **self.general_fields
-                ),
-                mock.call(
-                    summary='Caption for action 2',
-                    description='Caption for action 2',
-                    assignee={'name': 'ZZZ'},
-                    **self.general_fields
-                ),
-            ]
-        self.assertEqual(out, ref)
+
+        # Updated expected fields structure
+        expected_fields_1 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'MEETING-12345_2: Action 1\'s caption?',
+            'description': 'Description for action 1',
+            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],
+            'issuetype': {'name': 'Task'},
+        }
+        expected_fields_2 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'Caption for action 2',
+            'description': 'Caption for action 2',
+            'assignee': {'name': 'ZZZ'},
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],
+            'issuetype': {'name': 'Task'},
+        }
+
+        # Check that the calls were made with the correct fields (order may vary)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0].kwargs['fields'], expected_fields_1)
+        self.assertEqual(out[1].kwargs['fields'], expected_fields_2)
 
         self.assertEqual(
             issue.update.call_args_list,
-            [mock.call(update={'timetracking': [{"edit": {"originalEstimate": '2w 3d 4h 55m'}}]})]
+            [mock.call(fields={'timetracking': {'originalEstimate': '2w 3d 4h 55m'}})]
         )
 
         # attendees added for action1 since it is linked with depends_on to parent item with ``attendees`` attribute
@@ -194,46 +206,54 @@ class TestJiraInteraction(TestCase):
         the assignee should be set in an additional call to Jira after the watchers have been added.
         """
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.project_components.return_value = produce_fake_components()
+        jira_mock.search_users.side_effect = produce_fake_users
         self.settings['notify_watchers'] = True
 
         with self.assertLogs(level=WARNING):
             warning('Dummy log')
             dut.create_jira_issues(self.settings, self.coll)
 
-        # No kwarg 'assignee' should be passed
+        # No assignee should be passed in fields
+        expected_fields_1 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'MEETING-12345_2: Action 1\'s caption?',
+            'description': 'Description for action 1',
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],
+            'issuetype': {'name': 'Task'},
+        }
+        expected_fields_2 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'Caption for action 2',
+            'description': 'Caption for action 2',
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],
+            'issuetype': {'name': 'Task'},
+        }
+
         self.assertEqual(
             jira_mock.create_issue.call_args_list,
             [
-                mock.call(
-                    description='Description for action 1',
-                    summary='MEETING-12345_2: Action 1\'s caption?',
-                    **self.general_fields
-                ),
-                mock.call(
-                    description='Caption for action 2',
-                    summary='Caption for action 2',
-                    **self.general_fields
-                ),
+                mock.call(fields=expected_fields_1),
+                mock.call(fields=expected_fields_2),
             ])
         # Additional call to set assignee should be made after the issue has been created
         issue = jira_mock.create_issue.return_value
-        self.assertEqual(jira_mock.assign_issue.call_args_list,
-                         [
-                             mock.call(issue, 'ABC'),
-                             mock.call(issue, 'ZZZ'),
-                         ])
+        # Check assign_issue calls - ABC should use accountId, ZZZ should use name
+        self.assertEqual(len(jira_mock.assign_issue.call_args_list), 2)
+        self.assertEqual(jira_mock.assign_issue.call_args_list[0].args[1], 'bf3157418d89e30046118185')  # ABC -> accountId
+        self.assertEqual(jira_mock.assign_issue.call_args_list[1].args[1], 'ZZZ')  # ZZZ -> name (no accountId found)
 
     def test_create_issue_timetracking_unavailable(self, jira):
         """ Value of effort attribute should be appended to description when setting timetracking field raises error """
-        def jira_update_mock(update={}, **_):
-            if 'timetracking' in update:
+        def jira_update_mock(fields=None, **_):
+            if fields and 'timetracking' in fields:
                 raise JIRAError
 
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.project_components.return_value = produce_fake_components()
+        jira_mock.search_users.side_effect = produce_fake_users
         issue = jira_mock.create_issue.return_value
         issue.update.side_effect = jira_update_mock
         dut.create_jira_issues(self.settings, self.coll)
@@ -241,14 +261,14 @@ class TestJiraInteraction(TestCase):
         self.assertEqual(
             issue.update.call_args_list,
             [
-                mock.call(update={'timetracking': [{"edit": {"originalEstimate": '2w 3d 4h 55m'}}]}),
+                mock.call(fields={'timetracking': {'originalEstimate': '2w 3d 4h 55m'}}),
                 mock.call(description="Description for action 1\n\nEffort estimate: 2w 3d 4h 55m"),
             ]
         )
 
     def test_prevent_duplication(self, jira):
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = ['Jira already contains this ticket']
+        jira_mock.enhanced_search_issues.return_value = ['Jira already contains this ticket']
         jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             dut.create_jira_issues(self.settings, self.coll)
@@ -267,7 +287,7 @@ class TestJiraInteraction(TestCase):
         """ Default behavior should be no warning when a Jira ticket doesn't get created to prevent duplication """
         self.settings.pop('warn_if_exists')
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = ['Jira already contains this ticket']
+        jira_mock.enhanced_search_issues.return_value = ['Jira already contains this ticket']
         jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             warning('Dummy log')
@@ -281,29 +301,35 @@ class TestJiraInteraction(TestCase):
     def test_default_project(self, jira):
         """ The default_project should get used when project_key_regex doesn't match """
         self.settings['project_key_regex'] = 'regex_that_does_not_match_any_id'
-        self.general_fields['project'] = self.settings['default_project']
 
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
         dut.create_jira_issues(self.settings, self.coll)
 
+        expected_fields_1 = {
+            'project': {'key': 'SWCC'},
+            'summary': 'MEETING-12345_2: Action 1\'s caption?',
+            'description': 'Description for action 1',
+            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],
+            'issuetype': {'name': 'Task'},
+        }
+        expected_fields_2 = {
+            'project': {'key': 'SWCC'},
+            'summary': 'Caption for action 2',
+            'description': 'Caption for action 2',
+            'assignee': {'name': 'ZZZ'},
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],
+            'issuetype': {'name': 'Task'},
+        }
+
         self.assertEqual(
             jira_mock.create_issue.call_args_list,
             [
-                mock.call(
-                    summary='MEETING-12345_2: Action 1\'s caption?',
-                    description='Description for action 1',
-                    assignee={'name': 'ABC'},
-                    **self.general_fields
-                ),
-                mock.call(
-                    summary='Caption for action 2',
-                    description='Caption for action 2',
-                    assignee={'name': 'ZZZ'},
-                    **self.general_fields
-                ),
+                mock.call(fields=expected_fields_1),
+                mock.call(fields=expected_fields_2),
             ])
 
     def test_add_watcher_jira_error(self, jira):
@@ -313,7 +339,7 @@ class TestJiraInteraction(TestCase):
             raise JIRAError(status_code=401, text='dummy msg')
 
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.add_watcher.side_effect = jira_add_watcher_mock
         jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
@@ -341,7 +367,7 @@ class TestJiraInteraction(TestCase):
         self.coll.add_relation('ACTION-12345_ACTION_1', 'depends_on', alternative_parent.identifier)
 
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
@@ -353,28 +379,36 @@ class TestJiraInteraction(TestCase):
             ['WARNING:root:Dummy log']
         )
 
-        self.assertEqual(jira_mock.search_issues.call_args_list,
+        self.assertEqual(jira_mock.enhanced_search_issues.call_args_list,
                          [
-                             mock.call("project=MLX12345 and summary ~ "
-                                       '"ZZZ\\\\-TO_BE_PRIORITIZED\\\\: Action 1\'s caption\\\\?"'),
-                             mock.call("project=MLX12345 and summary ~ 'Caption for action 2'"),
+                             mock.call(jql="project=MLX12345 and summary ~ "
+                                       '"ZZZ\\\\-TO_BE_PRIORITIZED\\\\: Action 1\'s caption\\\\?"',
+                                       maxResults=1),
+                             mock.call(jql="project=MLX12345 and summary ~ 'Caption for action 2'", maxResults=1),
                          ])
+
+        expected_fields_1 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'ZZZ-TO_BE_PRIORITIZED: Action 1\'s caption?',
+            'description': 'Description for action 1',
+            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],
+            'issuetype': {'name': 'Task'},
+        }
+        expected_fields_2 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'Caption for action 2',
+            'description': 'Caption for action 2',
+            'assignee': {'name': 'ZZZ'},
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],
+            'issuetype': {'name': 'Task'},
+        }
 
         self.assertEqual(
             jira_mock.create_issue.call_args_list,
             [
-                mock.call(
-                    summary='ZZZ-TO_BE_PRIORITIZED: Action 1\'s caption?',
-                    description='Description for action 1',
-                    assignee={'name': 'ABC'},
-                    **self.general_fields
-                ),
-                mock.call(
-                    summary='Caption for action 2',
-                    description='Caption for action 2',
-                    assignee={'name': 'ZZZ'},
-                    **self.general_fields
-                ),
+                mock.call(fields=expected_fields_1),
+                mock.call(fields=expected_fields_2),
             ])
 
     def test_get_info_from_relationship_tuple(self, _):
@@ -413,7 +447,7 @@ class TestJiraInteraction(TestCase):
             ]
 
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_stripped_components()
 
@@ -428,25 +462,27 @@ class TestJiraInteraction(TestCase):
         # Check that the create_issue calls use the stripped component names
         out = jira_mock.create_issue.call_args_list
 
-        # Expected components should be stripped
-        expected_general_fields = self.general_fields.copy()
-        expected_general_fields['components'] = [{'name': 'SW'}, {'name': 'HW'}]
+        expected_fields_1 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'MEETING-12345_2: Action 1\'s caption?',
+            'description': 'Description for action 1',
+            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'components': [{'name': 'SW'}, {'name': 'HW'}],
+            'issuetype': {'name': 'Task'},
+        }
+        expected_fields_2 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'Caption for action 2',
+            'description': 'Caption for action 2',
+            'assignee': {'name': 'ZZZ'},
+            'components': [{'name': 'SW'}, {'name': 'HW'}],
+            'issuetype': {'name': 'Task'},
+        }
 
-        ref = [
-            mock.call(
-                summary='MEETING-12345_2: Action 1\'s caption?',
-                description='Description for action 1',
-                assignee={'name': 'ABC'},
-                **expected_general_fields
-            ),
-            mock.call(
-                summary='Caption for action 2',
-                description='Caption for action 2',
-                assignee={'name': 'ZZZ'},
-                **expected_general_fields
-            ),
-        ]
-        self.assertEqual(out, ref)
+        # Check that the calls were made with the correct fields (order may vary)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0].kwargs['fields'], expected_fields_1)
+        self.assertEqual(out[1].kwargs['fields'], expected_fields_2)
 
     def test_invalid_components_warning(self, jira):
         """ Test that invalid components generate warnings """
@@ -458,7 +494,7 @@ class TestJiraInteraction(TestCase):
             ]
 
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_different_components()
 
@@ -479,7 +515,7 @@ class TestJiraInteraction(TestCase):
             raise JIRAError(status_code=404, text='Project not found')
 
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.side_effect = jira_project_components_error
 
@@ -493,26 +529,33 @@ class TestJiraInteraction(TestCase):
 
         # Check that the create_issue calls use the original component names (fallback behavior)
         out = jira_mock.create_issue.call_args_list
-        ref = [
-            mock.call(
-                summary='MEETING-12345_2: Action 1\'s caption?',
-                description='Description for action 1',
-                assignee={'name': 'ABC'},
-                **self.general_fields  # Original components should be used
-            ),
-            mock.call(
-                summary='Caption for action 2',
-                description='Caption for action 2',
-                assignee={'name': 'ZZZ'},
-                **self.general_fields  # Original components should be used
-            ),
-        ]
-        self.assertEqual(out, ref)
+
+        expected_fields_1 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'MEETING-12345_2: Action 1\'s caption?',
+            'description': 'Description for action 1',
+            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],  # Original components should be used
+            'issuetype': {'name': 'Task'},
+        }
+        expected_fields_2 = {
+            'project': {'key': 'MLX12345'},
+            'summary': 'Caption for action 2',
+            'description': 'Caption for action 2',
+            'assignee': {'name': 'ZZZ'},
+            'components': [{'name': '[SW]'}, {'name': '[HW]'}],  # Original components should be used
+            'issuetype': {'name': 'Task'},
+        }
+
+        # Check that the calls were made with the correct fields (order may vary)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0].kwargs['fields'], expected_fields_1)
+        self.assertEqual(out[1].kwargs['fields'], expected_fields_2)
 
     def test_component_validation_caching(self, jira):
         """ Test that component validation is cached per project """
         jira_mock = jira.return_value
-        jira_mock.search_issues.return_value = []
+        jira_mock.enhanced_search_issues.return_value = []
         jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
 
@@ -523,3 +566,55 @@ class TestJiraInteraction(TestCase):
 
         # Verify it was called with the correct project
         jira_mock.project_components.assert_called_with('MLX12345')
+
+    def test_resolve_account_id_success(self, _):
+        """ Test that resolve_account_id returns accountId when user is found """
+        jira_mock = mock.MagicMock()
+        User = namedtuple('User', 'accountId')
+        jira_mock.search_users.return_value = [User('bf3157418d89e30046118185')]
+
+        result = dut.resolve_account_id(jira_mock, 'testuser')
+        self.assertEqual(result, 'bf3157418d89e30046118185')
+
+    def test_resolve_account_id_not_found(self, _):
+        """ Test that resolve_account_id returns empty string when user is not found """
+        jira_mock = mock.MagicMock()
+        jira_mock.search_users.return_value = []
+
+        result = dut.resolve_account_id(jira_mock, 'nonexistent')
+        self.assertEqual(result, '')
+
+    def test_resolve_account_id_exception(self, _):
+        """ Test that resolve_account_id returns empty string when search_users raises exception """
+        jira_mock = mock.MagicMock()
+        jira_mock.search_users.side_effect = Exception('API error')
+
+        result = dut.resolve_account_id(jira_mock, 'testuser')
+        self.assertEqual(result, '')
+
+    def test_enhanced_search_issues_fallback(self, jira):
+        """ Test that the code falls back to search_issues when enhanced_search_issues is not available """
+        jira_mock = jira.return_value
+        # Simulate enhanced_search_issues not being available
+        del jira_mock.enhanced_search_issues
+        jira_mock.search_issues.return_value = []
+        jira_mock.search_users.side_effect = produce_fake_users
+        jira_mock.project_components.return_value = produce_fake_components()
+
+        with self.assertLogs(level=WARNING) as cm:
+            warning('Dummy log')
+            dut.create_jira_issues(self.settings, self.coll)
+
+        self.assertEqual(
+            cm.output,
+            ['WARNING:root:Dummy log']
+        )
+
+        # Should have used the fallback search_issues method
+        self.assertEqual(jira_mock.search_issues.call_args_list,
+                         [
+                             mock.call(
+                                 jql_str='project=MLX12345 and summary ~ "MEETING\\\\-12345_2\\\\: Action 1\'s caption\\\\?"',
+                                 maxResults=1),
+                             mock.call(jql_str="project=MLX12345 and summary ~ 'Caption for action 2'", maxResults=1),
+                         ])

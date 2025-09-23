@@ -81,16 +81,29 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
 
         jira_field_id = settings['jira_field_id']
         jira_field_query_value = escape_special_characters(jira_field)
-        matches = jira.search_issues("project={} and {} ~ {!r}".format(project_id_or_key,
-                                                                       jira_field_id,
-                                                                       jira_field_query_value))
+        # Use enhanced_search_issues for Jira Cloud compatibility
+        try:
+            matches = jira.enhanced_search_issues(
+                jql="project={} and {} ~ {!r}".format(project_id_or_key, jira_field_id, jira_field_query_value),
+                maxResults=1,
+            )
+        except AttributeError:
+            # Fallback to legacy search_issues for older jira library versions
+            matches = jira.search_issues(
+                jql_str="project={} and {} ~ {!r}".format(project_id_or_key, jira_field_id, jira_field_query_value),
+                maxResults=1,
+            )
         if matches:
             if settings.get('warn_if_exists', False):
                 LOGGER.warning("Won't create a {} for item {!r} because the Jira API query to check to prevent "
                                "duplication returned {}".format(general_fields['issuetype']['name'], item_id, matches))
             continue
 
-        fields['project'] = project_id_or_key
+        # project field must be a dict with key or id for newer Jira API
+        if str(project_id_or_key).isdigit():
+            fields['project'] = {'id': project_id_or_key}
+        else:
+            fields['project'] = {'key': project_id_or_key}
         fields[jira_field_id] = jira_field
         body = item.content
         if not body:
@@ -103,7 +116,12 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         fields['description'] = description
 
         if assignee and not settings.get('notify_watchers', False):
-            fields['assignee'] = {'name': assignee}
+            # Try to resolve accountId (Jira Cloud) and fall back to username (Server/DC)
+            account_id = resolve_account_id(jira, assignee)
+            if account_id:
+                fields['assignee'] = {'accountId': account_id}
+            else:
+                fields['assignee'] = {'name': assignee}
             assignee = ''
 
         # Validate components against Jira project (cached per project)
@@ -139,12 +157,12 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
     Returns:
         jira.resources.Issue: newly created Jira issue
     """
-    issue = jira.create_issue(**fields)
+    issue = jira.create_issue(fields=fields)
 
     effort = item.get_attribute('effort')
     if effort:
         try:
-            issue.update(update={"timetracking": [{"edit": {"originalEstimate": effort}}]})
+            issue.update(fields={"timetracking": {"originalEstimate": effort}})
         except JIRAError:
             # If effort update fails, append to description instead
             issue.update(description="{}\n\nEffort estimate: {}".format(item.content, effort))
@@ -155,7 +173,9 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
         except JIRAError as err:
             LOGGER.warning("Could not add watcher {} to issue {}: {}".format(attendee, issue.key, err.text))
     if assignee:
-        jira.assign_issue(issue, assignee)
+        # Try assign using accountId if resolvable; otherwise pass through the provided value
+        account_id = resolve_account_id(jira, assignee)
+        jira.assign_issue(issue, account_id or assignee)
     return issue
 
 
@@ -233,3 +253,20 @@ def escape_special_characters(input_string):
         if special_char in prepared_string:
             prepared_string = prepared_string.replace(special_char, "\\" + special_char)
     return prepared_string
+
+
+def resolve_account_id(jira, username_or_email):
+    """Attempt to resolve a Jira Cloud accountId from a username or email.
+
+    Returns an accountId string or empty string if not resolvable.
+    """
+    try:
+        # search_users supports both username fragments and emails depending on Jira config
+        candidates = jira.search_users(query=username_or_email, maxResults=2)
+        for user in candidates:
+            account_id = getattr(user, 'accountId', '') or getattr(user, 'account_id', '')
+            if account_id:
+                return account_id
+    except Exception:  # noqa: BLE001 - be defensive against older server APIs
+        return ''
+    return ''
