@@ -154,9 +154,9 @@ class TestJiraInteraction(TestCase):
         self.assertEqual(jira_mock.enhanced_search_issues.call_args_list,
                          [
                              mock.call(
-                                 jql='project=MLX12345 and summary ~ "MEETING\\\\-12345_2\\\\: Action 1\'s caption\\\\?"',
+                                 jql_str='project=MLX12345 and summary ~ "MEETING\\\\-12345_2\\\\: Action 1\'s caption\\\\?"',
                                  maxResults=1),
-                             mock.call(jql="project=MLX12345 and summary ~ 'Caption for action 2'", maxResults=1),
+                             mock.call(jql_str="project=MLX12345 and summary ~ 'Caption for action 2'", maxResults=1),
                          ])
 
         issue = jira_mock.create_issue.return_value
@@ -381,10 +381,10 @@ class TestJiraInteraction(TestCase):
 
         self.assertEqual(jira_mock.enhanced_search_issues.call_args_list,
                          [
-                             mock.call(jql="project=MLX12345 and summary ~ "
+                             mock.call(jql_str="project=MLX12345 and summary ~ "
                                        '"ZZZ\\\\-TO_BE_PRIORITIZED\\\\: Action 1\'s caption\\\\?"',
                                        maxResults=1),
-                             mock.call(jql="project=MLX12345 and summary ~ 'Caption for action 2'", maxResults=1),
+                             mock.call(jql_str="project=MLX12345 and summary ~ 'Caption for action 2'", maxResults=1),
                          ])
 
         expected_fields_1 = {

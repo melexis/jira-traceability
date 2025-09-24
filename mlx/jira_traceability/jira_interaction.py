@@ -84,7 +84,7 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         # Use enhanced_search_issues for Jira Cloud compatibility
         try:
             matches = jira.enhanced_search_issues(
-                jql="project={} and {} ~ {!r}".format(project_id_or_key, jira_field_id, jira_field_query_value),
+                jql_str="project={} and {} ~ {!r}".format(project_id_or_key, jira_field_id, jira_field_query_value),
                 maxResults=1,
             )
         except AttributeError:
