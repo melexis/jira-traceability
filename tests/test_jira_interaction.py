@@ -8,18 +8,6 @@ from mlx.traceability import TraceableAttribute, TraceableCollection, TraceableI
 import mlx.jira_traceability.jira_interaction as dut
 
 
-def produce_fake_users(**kwargs):
-    users = []
-    if kwargs.get('user') is not None:
-        User = namedtuple('User', 'name')
-        users.append(User(kwargs['user']))
-    if kwargs.get('query') is not None:
-        # Only return accountId for 'ABC', not for 'ZZZ'
-        if kwargs['query'] == 'ABC':
-            User = namedtuple('User', 'accountId')
-            users.append(User('bf3157418d89e30046118185'))
-        # For other users like 'ZZZ', return empty list (no accountId found)
-    return users
 
 
 def produce_fake_components():
@@ -138,7 +126,6 @@ class TestJiraInteraction(TestCase):
     def test_create_jira_issues_unique(self, jira):
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             warning('Dummy log')
@@ -162,12 +149,12 @@ class TestJiraInteraction(TestCase):
         issue = jira_mock.create_issue.return_value
         out = jira_mock.create_issue.call_args_list
 
-        # Updated expected fields structure
+        # Updated expected fields structure - now all assignees use name format
         expected_fields_1 = {
             'project': {'key': 'MLX12345'},
             'summary': 'MEETING-12345_2: Action 1\'s caption?',
             'description': 'Description for action 1',
-            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'assignee': {'name': 'ABC'},
             'components': [{'name': '[SW]'}, {'name': '[HW]'}],
             'issuetype': {'name': 'Task'},
         }
@@ -208,7 +195,6 @@ class TestJiraInteraction(TestCase):
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
         jira_mock.project_components.return_value = produce_fake_components()
-        jira_mock.search_users.side_effect = produce_fake_users
         self.settings['notify_watchers'] = True
 
         with self.assertLogs(level=WARNING):
@@ -239,10 +225,10 @@ class TestJiraInteraction(TestCase):
             ])
         # Additional call to set assignee should be made after the issue has been created
         issue = jira_mock.create_issue.return_value
-        # Check assign_issue calls - ABC should use accountId, ZZZ should use name
+        # Check assign_issue calls - now all users use username format
         self.assertEqual(len(jira_mock.assign_issue.call_args_list), 2)
-        self.assertEqual(jira_mock.assign_issue.call_args_list[0].args[1], 'bf3157418d89e30046118185')  # ABC -> accountId
-        self.assertEqual(jira_mock.assign_issue.call_args_list[1].args[1], 'ZZZ')  # ZZZ -> name (no accountId found)
+        self.assertEqual(jira_mock.assign_issue.call_args_list[0].args[1], 'ABC')  # ABC -> username
+        self.assertEqual(jira_mock.assign_issue.call_args_list[1].args[1], 'ZZZ')  # ZZZ -> username
 
     def test_create_issue_timetracking_unavailable(self, jira):
         """ Value of effort attribute should be appended to description when setting timetracking field raises error """
@@ -253,7 +239,6 @@ class TestJiraInteraction(TestCase):
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
         jira_mock.project_components.return_value = produce_fake_components()
-        jira_mock.search_users.side_effect = produce_fake_users
         issue = jira_mock.create_issue.return_value
         issue.update.side_effect = jira_update_mock
         dut.create_jira_issues(self.settings, self.coll)
@@ -304,7 +289,6 @@ class TestJiraInteraction(TestCase):
 
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
         dut.create_jira_issues(self.settings, self.coll)
 
@@ -312,7 +296,7 @@ class TestJiraInteraction(TestCase):
             'project': {'key': 'SWCC'},
             'summary': 'MEETING-12345_2: Action 1\'s caption?',
             'description': 'Description for action 1',
-            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'assignee': {'name': 'ABC'},
             'components': [{'name': '[SW]'}, {'name': '[HW]'}],
             'issuetype': {'name': 'Task'},
         }
@@ -341,7 +325,6 @@ class TestJiraInteraction(TestCase):
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
         jira_mock.add_watcher.side_effect = jira_add_watcher_mock
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             dut.create_jira_issues(self.settings, self.coll)
@@ -368,7 +351,6 @@ class TestJiraInteraction(TestCase):
 
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
         with self.assertLogs(level=WARNING) as cm:
             warning('Dummy log')
@@ -391,7 +373,7 @@ class TestJiraInteraction(TestCase):
             'project': {'key': 'MLX12345'},
             'summary': 'ZZZ-TO_BE_PRIORITIZED: Action 1\'s caption?',
             'description': 'Description for action 1',
-            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'assignee': {'name': 'ABC'},
             'components': [{'name': '[SW]'}, {'name': '[HW]'}],
             'issuetype': {'name': 'Task'},
         }
@@ -448,7 +430,6 @@ class TestJiraInteraction(TestCase):
 
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_stripped_components()
 
         # Use INFO level to capture the stripped component messages
@@ -466,7 +447,7 @@ class TestJiraInteraction(TestCase):
             'project': {'key': 'MLX12345'},
             'summary': 'MEETING-12345_2: Action 1\'s caption?',
             'description': 'Description for action 1',
-            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'assignee': {'name': 'ABC'},
             'components': [{'name': 'SW'}, {'name': 'HW'}],
             'issuetype': {'name': 'Task'},
         }
@@ -495,7 +476,6 @@ class TestJiraInteraction(TestCase):
 
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_different_components()
 
         with self.assertLogs(level=WARNING) as cm:
@@ -516,7 +496,6 @@ class TestJiraInteraction(TestCase):
 
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.side_effect = jira_project_components_error
 
         with self.assertLogs(level=WARNING) as cm:
@@ -534,7 +513,7 @@ class TestJiraInteraction(TestCase):
             'project': {'key': 'MLX12345'},
             'summary': 'MEETING-12345_2: Action 1\'s caption?',
             'description': 'Description for action 1',
-            'assignee': {'accountId': 'bf3157418d89e30046118185'},
+            'assignee': {'name': 'ABC'},
             'components': [{'name': '[SW]'}, {'name': '[HW]'}],  # Original components should be used
             'issuetype': {'name': 'Task'},
         }
@@ -556,7 +535,6 @@ class TestJiraInteraction(TestCase):
         """ Test that component validation is cached per project """
         jira_mock = jira.return_value
         jira_mock.enhanced_search_issues.return_value = []
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
 
         dut.create_jira_issues(self.settings, self.coll)
@@ -567,30 +545,6 @@ class TestJiraInteraction(TestCase):
         # Verify it was called with the correct project
         jira_mock.project_components.assert_called_with('MLX12345')
 
-    def test_resolve_account_id_success(self, _):
-        """ Test that resolve_account_id returns accountId when user is found """
-        jira_mock = mock.MagicMock()
-        User = namedtuple('User', 'accountId')
-        jira_mock.search_users.return_value = [User('bf3157418d89e30046118185')]
-
-        result = dut.resolve_account_id(jira_mock, 'testuser')
-        self.assertEqual(result, 'bf3157418d89e30046118185')
-
-    def test_resolve_account_id_not_found(self, _):
-        """ Test that resolve_account_id returns empty string when user is not found """
-        jira_mock = mock.MagicMock()
-        jira_mock.search_users.return_value = []
-
-        result = dut.resolve_account_id(jira_mock, 'nonexistent')
-        self.assertEqual(result, '')
-
-    def test_resolve_account_id_exception(self, _):
-        """ Test that resolve_account_id returns empty string when search_users raises exception """
-        jira_mock = mock.MagicMock()
-        jira_mock.search_users.side_effect = Exception('API error')
-
-        result = dut.resolve_account_id(jira_mock, 'testuser')
-        self.assertEqual(result, '')
 
     def test_enhanced_search_issues_fallback(self, jira):
         """ Test that the code falls back to search_issues when enhanced_search_issues is not available """
@@ -598,7 +552,6 @@ class TestJiraInteraction(TestCase):
         # Simulate enhanced_search_issues not being available
         del jira_mock.enhanced_search_issues
         jira_mock.search_issues.return_value = []
-        jira_mock.search_users.side_effect = produce_fake_users
         jira_mock.project_components.return_value = produce_fake_components()
 
         with self.assertLogs(level=WARNING) as cm:
