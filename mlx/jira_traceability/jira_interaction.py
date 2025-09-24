@@ -168,13 +168,13 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
             # Let the JIRA library handle user resolution automatically
             jira.add_watcher(issue, attendee)
         except JIRAError as err:
-            LOGGER.warning("Could not add watcher '{}' to issue {}: {}".format(attendee, issue.key, err.text))
+            LOGGER.warning("Could not add watcher {} to issue {}: {}".format(attendee, issue.key, err.text))
     if assignee:
         try:
             # Let the JIRA library handle user resolution automatically
             jira.assign_issue(issue, assignee)
         except JIRAError as err:
-            LOGGER.warning("Could not assign issue {} to '{}': {}".format(issue.key, assignee, err.text))
+            LOGGER.warning("Could not assign issue {} to {}: {}".format(issue.key, assignee, err.text))
     return issue
 
 
