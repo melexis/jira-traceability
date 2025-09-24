@@ -116,12 +116,8 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         fields['description'] = description
 
         if assignee and not settings.get('notify_watchers', False):
-            # Try to resolve accountId (Jira Cloud) and fall back to username (Server/DC)
-            account_id = resolve_account_id(jira, assignee)
-            if account_id:
-                fields['assignee'] = {'accountId': account_id}
-            else:
-                fields['assignee'] = {'name': assignee}
+            # Let the JIRA library handle user resolution automatically
+            fields['assignee'] = {'name': assignee}
             assignee = ''
 
         # Validate components against Jira project (cached per project)
@@ -169,13 +165,16 @@ def push_item_to_jira(jira, fields, item, attendees, assignee):
 
     for attendee in attendees:
         try:
+            # Let the JIRA library handle user resolution automatically
             jira.add_watcher(issue, attendee)
         except JIRAError as err:
-            LOGGER.warning("Could not add watcher {} to issue {}: {}".format(attendee, issue.key, err.text))
+            LOGGER.warning("Could not add watcher '{}' to issue {}: {}".format(attendee, issue.key, err.text))
     if assignee:
-        # Try assign using accountId if resolvable; otherwise pass through the provided value
-        account_id = resolve_account_id(jira, assignee)
-        jira.assign_issue(issue, account_id or assignee)
+        try:
+            # Let the JIRA library handle user resolution automatically
+            jira.assign_issue(issue, assignee)
+        except JIRAError as err:
+            LOGGER.warning("Could not assign issue {} to '{}': {}".format(issue.key, assignee, err.text))
     return issue
 
 
@@ -255,18 +254,3 @@ def escape_special_characters(input_string):
     return prepared_string
 
 
-def resolve_account_id(jira, username_or_email):
-    """Attempt to resolve a Jira Cloud accountId from a username or email.
-
-    Returns an accountId string or empty string if not resolvable.
-    """
-    try:
-        # search_users supports both username fragments and emails depending on Jira config
-        candidates = jira.search_users(query=username_or_email, maxResults=2)
-        for user in candidates:
-            account_id = getattr(user, 'accountId', '') or getattr(user, 'account_id', '')
-            if account_id:
-                return account_id
-    except Exception:  # noqa: BLE001 - be defensive against older server APIs
-        return ''
-    return ''
