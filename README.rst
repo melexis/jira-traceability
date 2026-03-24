@@ -62,6 +62,7 @@ Configuration
         'warn_if_exists': False,
         'errors_to_warnings': True,
         'notify_watchers': False,
+        'user_email_suffix': '@anotherexample.com'
     }
 
 Jira Configuration
@@ -107,6 +108,12 @@ a ticket for does not have a body, its caption will be used to build the ticket'
 Watchers of a ticket can be notified about the creation of the ticket by setting ``notify_watchers`` to ``True``.
 Note that this notification is only sent when the user to assign to the ticket is different from the default assignee
 configured in Jira.
+
+``user_email_suffix`` can be used to specify a custom domain suffix for Jira user emails (assignee, watchers).
+If set, this suffix will be appended to usernames that do not already contain an '@' symbol.
+This setting overrides the default behavior of extracting the suffix from the ``username`` configured in Jira Server
+or Jira Cloud settings. This helps for example when using a service account as the Jira username that has a different
+domain than the users.
 
 Attributes
 ==========
