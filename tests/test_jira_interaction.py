@@ -571,3 +571,23 @@ class TestJiraInteraction(TestCase):
                                  maxResults=1),
                              mock.call(jql_str="project=MLX12345 and summary ~ 'Caption for action 2'", maxResults=1),
                          ])
+
+    def test_user_email_suffix(self, jira):
+        """ Test that the user_email_suffix configuration is correctly used """
+        self.settings['user_email_suffix'] = 'mycompany.com'
+        self.settings['notify_watchers'] = True  # To trigger assign_issue
+        jira_mock = jira.return_value
+        jira_mock.enhanced_search_issues.return_value = []
+        jira_mock.project_components.return_value = produce_fake_components()
+        jira_mock.search_users.return_value = True
+
+        dut.create_jira_issues(self.settings, self.coll)
+
+        # Check that add_watcher and assign_issue were called with the correct email addresses
+        expected_watchers = ['abc@mycompany.com', 'zzz@mycompany.com']
+        for call in jira_mock.add_watcher.call_args_list:
+            self.assertIn(call.args[1], expected_watchers)
+
+        expected_assignees = ['abc@mycompany.com', 'zzz@mycompany.com']
+        for call in jira_mock.assign_issue.call_args_list:
+            self.assertIn(call.args[1], expected_assignees)
