@@ -73,11 +73,21 @@ def create_unique_issues(item_ids, jira, general_fields, settings, traceability_
         assignee = item.get_attribute('assignee').strip()
         attendees, jira_field = get_info_from_relationship(item, settings['relationship_to_parent'],
                                                            traceability_collection)
-        username = settings['username']
-        if '@' in username:
-            suffix = username[username.index('@'):]
-            assignee = f"{assignee}{suffix}".lower()
-            attendees = [f"{attendee}{suffix}".lower() for attendee in attendees]
+        user_email_suffix = settings.get('user_email_suffix', '')
+        if user_email_suffix:
+            suffix = user_email_suffix if user_email_suffix.startswith('@') else f"@{user_email_suffix}"
+        else:
+            username = settings['username']
+            if '@' in username:
+                suffix = username[username.index('@'):]
+            else:
+                suffix = ''
+
+        if suffix:
+            if assignee and '@' not in assignee:
+                assignee = f"{assignee}{suffix}".lower()
+            attendees = [f"{attendee}{suffix}".lower() if '@' not in attendee else attendee for attendee in attendees
+                         if attendee]
 
         jira_field_id = settings['jira_field_id']
         jira_field_query_value = escape_special_characters(jira_field)
